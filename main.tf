@@ -91,7 +91,7 @@ resource "azurerm_windows_virtual_machine" "test" {
   source_image_reference {
     publisher = "microsoftwindowsdesktop"
     offer     = "office-365"
-    sku       = "19h2-evd-o365pp"
+    sku       = "20h2-evd-o365pp"
     version   = "latest"
   }
 }
@@ -120,4 +120,23 @@ resource "azurerm_virtual_machine_extension" "domjoin" {
 PROTECTED_SETTINGS
 } 
 
+resource "azurerm_virtual_machine_extension" "addRemoteDesktopHostPool" {
+    count                = length(var.vm_name_list)
+    name                 = "install_agent"
+    virtual_machine_id   = element(azurerm_windows_virtual_machine.test.*.id, count.index)
+    publisher            = "Microsoft.Compute"
+    type                 = "CustomScriptExtension"
+    type_handler_version = "1.9"
+    depends_on           = [azurerm_virtual_machine_extension.domjoin]
+
+   protected_settings = <<SETTINGS
+   {
+     "commandToExecute": "powershell -command \"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${base64encode(data.template_file.tf.rendered)}')) | Out-File -filepath testaddHostpool.ps1\" && powershell -ExecutionPolicy Unrestricted -File testaddHostpool.ps1 ${var.registration_token}"
+   }
+   SETTINGS
+  }
+
+  data "template_file" "tf" {
+      template = file("testaddHostpool.ps1")
+  }
 
