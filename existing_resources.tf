@@ -30,3 +30,38 @@ data "azurerm_subnet" "existing" {
      virtual_network_name = data.azurerm_virtual_network.existing.name
      resource_group_name  = data.azurerm_resource_group.existing.name
 }
+
+data "azurerm_key_vault" "existing" {
+  name                = "key-avd-lab-001"
+  resource_group_name = data.azurerm_resource_group.existing.name
+}
+
+data "azurerm_key_vault_secret" "registration_token" {
+  name         = "registration-token"
+  key_vault_id = data.azurerm_key_vault.existing.id
+}
+
+data "azurerm_key_vault_secret" "addc_admin_password" {
+  name         = "addc-admin-password"
+  key_vault_id = data.azurerm_key_vault.existing.id
+}
+
+data "azurerm_key_vault_secret" "addc_admin_username" {
+  name         = "addc-admin-username"
+  key_vault_id = data.azurerm_key_vault.existing.id
+}
+
+data "azurerm_key_vault_secret" "addc_ou_path" {
+  name         = "addc-ou-path"
+  key_vault_id = data.azurerm_key_vault.existing.id
+}
+
+data "azurerm_key_vault_secret" "addc_domain" {
+  name         = "addc-domain"
+  key_vault_id = data.azurerm_key_vault.existing.id
+}
+
+data "azurerm_key_vault_secret" "mytest" {
+  name         = "mytest"
+  key_vault_id = data.azurerm_key_vault.existing.id
+}

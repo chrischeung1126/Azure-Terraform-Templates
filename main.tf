@@ -5,7 +5,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "=2.46.0"s
+      version = ">=2.51.0"
     }
   }
 }
@@ -58,34 +58,34 @@ provider "azurerm" {
 #  }
 
 resource "azurerm_network_interface" "test" {
-  count               = length(var.vm_name_list)
-  name                = format("%s-%s", var.network_interface_name, element(var.vm_name_list, count.index))
+  count               = var.vm_count
+  name                = format("nic01-%s-${count.index+1}", var.vm_name_prefix)
   location            = data.azurerm_resource_group.existing.location
   resource_group_name = data.azurerm_resource_group.existing.name
 
   ip_configuration {
-    name                          = var.network_interface_ip_config_name
+    name                          = "ipconfig01"
     subnet_id                     = data.azurerm_subnet.existing.id
-    private_ip_address_allocation = var.network_interface_ip_allocation_method
+    private_ip_address_allocation = "Static"
     private_ip_address = "10.0.0.${count.index+5}"
     #Dynamic, Static
   }
 }
 
 resource "azurerm_windows_virtual_machine" "test" {
-  count               = length(var.vm_name_list)
-  name                = element(var.vm_name_list, count.index)
+  count               = var.vm_count
+  name                = format("%s-${count.index+1}", var.vm_name_prefix)
   resource_group_name = data.azurerm_resource_group.existing.name
   location            = data.azurerm_resource_group.existing.location
-  size                = var.vm_size
-  admin_username      = var.vm_admin_username
-  admin_password      = var.vm_admin_password
+  size                = "Standard_D2s_v3"
+  admin_username      = "azureadmin"
+  admin_password      = "P@ssw0rdP@ssw0rd"
   network_interface_ids = [element(azurerm_network_interface.test.*.id, count.index)]
 
   os_disk {
-    name                 = format("%s-%s", var.os_disk_name, element(var.vm_name_list, count.index))
+    name                 = format("disk01-%s-${count.index+1}",var.vm_name_prefix)
     caching              = "ReadWrite"
-    storage_account_type = var.os_disk_type
+    storage_account_type = "Standard_LRS"
   }
   
   source_image_reference {
@@ -97,8 +97,8 @@ resource "azurerm_windows_virtual_machine" "test" {
 }
 
 resource "azurerm_virtual_machine_extension" "domjoin" {
-  count                 = length(var.vm_name_list)
-  name                  = "domjoin"
+  count                 =  var.vm_count
+  name                  = "domainjoin"
   virtual_machine_id    = element(azurerm_windows_virtual_machine.test.*.id, count.index)
   publisher             = "Microsoft.Compute"
   type                  = "JsonADDomainExtension"
@@ -106,23 +106,23 @@ resource "azurerm_virtual_machine_extension" "domjoin" {
 
   settings = <<SETTINGS
   {
-  "Name": "gtidevops.onmicrosoft.com",
-  "OUPath": "${var.addc_ou_path}",
-  "User": "${var.addc_admin_username}",
+  "Name": "${data.azurerm_key_vault_secret.addc_domain.value}",
+  "OUPath": "${data.azurerm_key_vault_secret.addc_ou_path.value}",
+  "User": "${data.azurerm_key_vault_secret.addc_admin_username.value}",
   "Restart": "true",
   "Options": "3"
   }
   SETTINGS
   protected_settings = <<PROTECTED_SETTINGS
   {
-  "Password": "${var.addc_admin_password}"
+  "Password": "${data.azurerm_key_vault_secret.addc_admin_password.value}"
   }
 PROTECTED_SETTINGS
 } 
 
 resource "azurerm_virtual_machine_extension" "addRemoteDesktopHostPool" {
-    count                = length(var.vm_name_list)
-    name                 = "install_agent"
+    count                = var.vm_count
+    name                 = "install_avd_agent"
     virtual_machine_id   = element(azurerm_windows_virtual_machine.test.*.id, count.index)
     publisher            = "Microsoft.Compute"
     type                 = "CustomScriptExtension"
@@ -131,7 +131,7 @@ resource "azurerm_virtual_machine_extension" "addRemoteDesktopHostPool" {
 
    protected_settings = <<SETTINGS
    {
-     "commandToExecute": "powershell -command \"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${base64encode(data.template_file.tf.rendered)}')) | Out-File -filepath testaddHostpool.ps1\" && powershell -ExecutionPolicy Unrestricted -File testaddHostpool.ps1 ${var.registration_token}"
+     "commandToExecute": "powershell -command \"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${base64encode(data.template_file.tf.rendered)}')) | Out-File -filepath testaddHostpool.ps1\" && powershell -ExecutionPolicy Unrestricted -File testaddHostpool.ps1 ${data.azurerm_key_vault_secret.registration_token.value}"
    }
    SETTINGS
   }
@@ -139,4 +139,5 @@ resource "azurerm_virtual_machine_extension" "addRemoteDesktopHostPool" {
   data "template_file" "tf" {
       template = file("testaddHostpool.ps1")
   }
+
 
