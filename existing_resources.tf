@@ -65,3 +65,13 @@ data "azurerm_key_vault_secret" "mytest" {
   name         = "mytest"
   key_vault_id = data.azurerm_key_vault.existing.id
 }
+
+data "azurerm_key_vault_secret" "local_admin_username" {
+  name         = "local-admin-username"
+  key_vault_id = data.azurerm_key_vault.existing.id
+}
+
+data "azurerm_key_vault_secret" "local_admin_password" {
+  name         = "local-admin-password"
+  key_vault_id = data.azurerm_key_vault.existing.id
+}

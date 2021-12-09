@@ -1,7 +1,7 @@
 # We strongly recommend using the required_providers block to set the
 # Azure Provider source and version being used
 terraform {
-  required_version = ">=0.13"
+  required_version = ">=0.15"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -59,31 +59,31 @@ provider "azurerm" {
 
 resource "azurerm_network_interface" "test" {
   count               = var.vm_count
-  name                = format("nic01-%s-${count.index+1}", var.vm_name_prefix)
+  name                = format("nic01-%s-${count.index+var.vm_exist_count}", var.vm_name_prefix)
   location            = data.azurerm_resource_group.existing.location
   resource_group_name = data.azurerm_resource_group.existing.name
 
   ip_configuration {
     name                          = "ipconfig01"
     subnet_id                     = data.azurerm_subnet.existing.id
-    private_ip_address_allocation = "Static"
-    private_ip_address = "10.0.0.${count.index+5}"
+    private_ip_address_allocation = "Dynamic"
+    # private_ip_address = "10.0.0.${count.index+var.vm_exist_ip}"
     #Dynamic, Static
   }
 }
 
 resource "azurerm_windows_virtual_machine" "test" {
   count               = var.vm_count
-  name                = format("%s-${count.index+1}", var.vm_name_prefix)
+  name                = format("%s-${count.index+var.vm_exist_count}", var.vm_name_prefix)
   resource_group_name = data.azurerm_resource_group.existing.name
   location            = data.azurerm_resource_group.existing.location
   size                = "Standard_D2s_v3"
-  admin_username      = "azureadmin"
-  admin_password      = "P@ssw0rdP@ssw0rd"
+  admin_username      = data.azurerm_key_vault_secret.local_admin_username.value
+  admin_password      = data.azurerm_key_vault_secret.local_admin_password.value
   network_interface_ids = [element(azurerm_network_interface.test.*.id, count.index)]
 
   os_disk {
-    name                 = format("disk01-%s-${count.index+1}",var.vm_name_prefix)
+    name                 = format("disk01-%s-${count.index+var.vm_exist_count}",var.vm_name_prefix)
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }
